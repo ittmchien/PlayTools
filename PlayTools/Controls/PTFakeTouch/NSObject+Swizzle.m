@@ -201,6 +201,11 @@ __attribute__((visibility("hidden")))
     return @[];
 }
 
+// Hide GCKeyboard from the app so keyboard-as-controller emulation does not flip game UI
++ (GCKeyboard *)hook_GCKeyboard_coalescedKeyboard {
+    return nil;
+}
+
 + (void)hook_Unity_KeyboardDelegate_Initialize {
     @try {
         [self hook_Unity_KeyboardDelegate_Initialize];
@@ -361,6 +366,11 @@ bool menuWasCreated = false;
     if (([[PlaySettings shared] disableBuiltinMouse])) {
         [objc_getClass("GCMouse") swizzleClassMethod:@selector(current) withMethod:@selector(hook_GCMouse_current)];
         [objc_getClass("GCMouse") swizzleClassMethod:@selector(mice) withMethod:@selector(hook_GCMouse_mice)];
+    }
+
+    // Hide GCKeyboard from the app so keyboard-as-controller emulation does not flip game UI
+    if (([[PlaySettings shared] disableBuiltinKeyboard])) {
+        [objc_getClass("GCKeyboard") swizzleClassMethod:@selector(coalescedKeyboard) withMethod:@selector(hook_GCKeyboard_coalescedKeyboard)];
     }
 
     // Delay a frame to wait for some frameworks (such as UnityFramework) to load
