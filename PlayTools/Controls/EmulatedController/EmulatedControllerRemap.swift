@@ -27,10 +27,16 @@ import GameController
 
     // Apple's own mapping per controller, so every reload merges against it and never against an earlier merge
     private static let appleMappings = NSMapTable<NSObject, NSDictionary>.weakToStrongObjects()
-    private static let appleMappingsLock = NSLock()
+    // Controller emulation mapping: Apple's key handler reads `_buttons` without retaining it, so no dictionary
+    // that was ever applied may be freed by a reload.
+    // ponytail: tiny memory per edit, bounded by user edits; never released
+    private static var appliedMappings: [NSDictionary] = []
+    // Guards appleMappings and appliedMappings (the hook may run off-main)
+    private static let stateLock = NSLock()
     // Main queue only
     private static var directoryWatcher: DispatchSourceFileSystemObject?
     private static var pendingReload: DispatchWorkItem?
+    private static var lastSeenFileData: Data?
 
     private struct LiveApplyTarget {
         let controllerClass: AnyClass
@@ -40,15 +46,20 @@ import GameController
     // Resolved on first reload, which only happens after the hook found the class loaded
     private static let liveApplyTarget = resolveLiveApplyTarget()
 
+    // Controller emulation mapping: store an immutable copy so later mutation by the caller cannot leak in
     @objc(rememberAppleMapping:forController:)
     public static func rememberAppleMapping(_ mapping: NSDictionary, for controller: NSObject) {
-        appleMappingsLock.lock()
-        defer { appleMappingsLock.unlock() }
-        appleMappings.setObject(mapping, forKey: controller)
+        let snapshot = mapping.copy() as? NSDictionary ?? mapping
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        appleMappings.setObject(snapshot, forKey: controller)
     }
 
+    // Controller emulation mapping: the result goes into Apple's `_mapping`, so it is kept alive forever
     @objc public static func mergedMapping(_ appleMapping: NSDictionary) -> NSDictionary {
-        merge(apple: appleMapping, file: readMappingFile())
+        let merged = merge(apple: appleMapping, file: parseMappingFile(readMappingData()))
+        keepAlive([merged])
+        return merged
     }
 
     // Controller emulation mapping: called once by the ObjC installer right after the remap hook is in place
@@ -57,9 +68,28 @@ import GameController
             #if DEBUG
             selfCheck()
             #endif
+            lastSeenFileData = readMappingData()
             startWatchingDirectory()
             // Late install: controllers Apple remapped before the hook existed pick up the file now
             reloadControllers()
+        }
+    }
+
+    // Controller emulation mapping: re-apply the file to every emulated controller (idempotent, main queue only);
+    // also called on controller connect for controllers that show up after the hook was installed.
+    // Swaps `_mapping` and rebuilds `_buttons` via -setupButtons; never calls -remapControlsWith: again,
+    // which would start a second set of timers
+    @objc public static func reloadControllers() {
+        guard let target = liveApplyTarget else { return }
+        let file = parseMappingFile(readMappingData())
+        for controller in GCController.controllers() where controller.isKind(of: target.controllerClass) {
+            guard let apple = appleMapping(of: controller, mappingIvar: target.mappingIvar) else { continue }
+            let merged = merge(apple: apple, file: file)
+            let previous = object_getIvar(controller, target.mappingIvar) as? NSDictionary
+            if let previous, previous.isEqual(merged) { continue }
+            keepAlive([previous, merged].compactMap { $0 })
+            object_setIvarWithStrongDefault(controller, target.mappingIvar, merged)
+            _ = controller.perform(setupButtonsSelector)
         }
     }
 
@@ -103,18 +133,36 @@ import GameController
     }
 
     // Controller emulation mapping: missing file is the normal "feature off" case and stays silent
-    private static func readMappingFile() -> NSDictionary? {
+    private static func readMappingData() -> Data? {
         guard FileManager.default.fileExists(atPath: fileURL.path) else { return nil }
         do {
-            let data = try Data(contentsOf: fileURL)
-            return try PropertyListSerialization.propertyList(from: data, format: nil) as? NSDictionary
+            return try Data(contentsOf: fileURL)
         } catch {
             print("[PlayTools] Failed to read controller emulation mapping: \(error)")
             return nil
         }
     }
 
-    // Controller emulation mapping: watch the directory, since PlayCover's atomic writes replace the file
+    // Controller emulation mapping: a malformed plist is logged and treated as "no file"
+    private static func parseMappingFile(_ data: Data?) -> NSDictionary? {
+        guard let data else { return nil }
+        do {
+            return try PropertyListSerialization.propertyList(from: data, format: nil) as? NSDictionary
+        } catch {
+            print("[PlayTools] Failed to parse controller emulation mapping: \(error)")
+            return nil
+        }
+    }
+
+    // Controller emulation mapping: retain applied dictionaries for the process lifetime (see appliedMappings)
+    private static func keepAlive(_ mappings: [NSDictionary]) {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        appliedMappings.append(contentsOf: mappings)
+    }
+
+    // Controller emulation mapping: watch the directory, since PlayCover's atomic writes replace the file;
+    // if the directory itself is deleted or renamed, recreate it and re-arm the watcher
     private static func startWatchingDirectory() {
         guard directoryWatcher == nil else { return }
         do {
@@ -128,10 +176,17 @@ import GameController
             print("[PlayTools] Failed to watch EmulatedController directory (errno \(errno))")
             return
         }
-        // ponytail: the watcher lives as long as the process, so it is never cancelled nor its descriptor closed
         let watcher = DispatchSource.makeFileSystemObjectSource(
-            fileDescriptor: descriptor, eventMask: .write, queue: .main)
-        watcher.setEventHandler { scheduleReload() }
+            fileDescriptor: descriptor, eventMask: [.write, .delete, .rename], queue: .main)
+        watcher.setEventHandler {
+            if !watcher.data.isDisjoint(with: [.delete, .rename]) {
+                watcher.cancel()
+                directoryWatcher = nil
+                startWatchingDirectory()
+            }
+            scheduleReload()
+        }
+        watcher.setCancelHandler { close(descriptor) }
         watcher.resume()
         directoryWatcher = watcher
     }
@@ -139,28 +194,24 @@ import GameController
     // Controller emulation mapping: collapse the burst of directory events from one save into a single reload
     private static func scheduleReload() {
         pendingReload?.cancel()
-        let reload = DispatchWorkItem { reloadControllers() }
+        let reload = DispatchWorkItem { reloadIfFileChanged() }
         pendingReload = reload
         DispatchQueue.main.asyncAfter(deadline: .now() + reloadDebounce, execute: reload)
     }
 
-    // Controller emulation mapping: swap `_mapping` and rebuild `_buttons` via -setupButtons; never call
-    // -remapControlsWith: again, it would start a second set of timers
-    private static func reloadControllers() {
-        guard let target = liveApplyTarget else { return }
-        let file = readMappingFile()
-        for controller in GCController.controllers() where controller.isKind(of: target.controllerClass) {
-            guard let apple = appleMapping(of: controller, mappingIvar: target.mappingIvar) else { continue }
-            object_setIvarWithStrongDefault(controller, target.mappingIvar, merge(apple: apple, file: file))
-            _ = controller.perform(setupButtonsSelector)
-        }
+    // Controller emulation mapping: the directory holds every app's plist; only this app's changes matter
+    private static func reloadIfFileChanged() {
+        let data = readMappingData()
+        guard data != lastSeenFileData else { return }
+        lastSeenFileData = data
+        reloadControllers()
     }
 
     // Controller emulation mapping: a controller remapped before the hook existed still holds Apple's mapping
     private static func appleMapping(of controller: GCController, mappingIvar: Ivar) -> NSDictionary? {
-        appleMappingsLock.lock()
+        stateLock.lock()
         let remembered = appleMappings.object(forKey: controller)
-        appleMappingsLock.unlock()
+        stateLock.unlock()
         if let remembered {
             return remembered
         }

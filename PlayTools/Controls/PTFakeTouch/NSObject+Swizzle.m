@@ -277,6 +277,7 @@ bool menuWasCreated = false;
 // on an unexpected signature it logs once and leaves Apple's behaviour untouched
 static NSString *const kEmulatedControllerClassName = @"GCKeyboardAndMouseEmulatedController";
 static const char *const kRemapControlsTypeEncoding = "v24@0:8@16";
+static BOOL isEmulatedControllerRemapHookInstalled = NO;
 
 static void installEmulatedControllerRemapHookIfNeeded(void) {
     static BOOL hasFoundClass = NO;
@@ -295,6 +296,7 @@ static void installEmulatedControllerRemapHookIfNeeded(void) {
     }
     [emulatedControllerClass swizzleInstanceMethod:remapSelector
                                         withMethod:@selector(hook_GCKeyboardAndMouseEmulatedController_remapControlsWith:)];
+    isEmulatedControllerRemapHookInstalled = YES;
     [EmulatedControllerRemap hookDidInstall];
 }
 
@@ -420,6 +422,10 @@ static void installEmulatedControllerRemapHookIfNeeded(void) {
                                                        queue:[NSOperationQueue mainQueue]
                                                   usingBlock:^(NSNotification *notification) {
         installEmulatedControllerRemapHookIfNeeded();
+        // Controller emulation mapping: a controller remapped by Apple before it was listed missed the late reload
+        if (isEmulatedControllerRemapHookInstalled) {
+            [EmulatedControllerRemap reloadControllers];
+        }
     }];
 
     // Delay a frame to wait for some frameworks (such as UnityFramework) to load
