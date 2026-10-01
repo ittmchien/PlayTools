@@ -99,6 +99,9 @@ let settings = PlaySettings.shared
     // Hide GCKeyboard from the app so keyboard-as-controller emulation does not flip game UI
     @objc lazy var disableBuiltinKeyboard = settingsData.disableBuiltinKeyboard
 
+    // Keep running in background: keep the game running while its window is on another desktop (Space)
+    @objc lazy var keepRunningInBackground = settingsData.keepRunningInBackground
+
     @objc lazy var blockSleepSpamming = settingsData.blockSleepSpamming
 
     @objc lazy var ignoreUnityKeyboardInitializationError = settingsData.ignoreUnityKeyboardInitializationError
@@ -133,6 +136,7 @@ struct AppSettingsData: Codable {
     var limitMotionUpdateFrequency = false
     var disableBuiltinMouse = false
     var disableBuiltinKeyboard = false
+    var keepRunningInBackground = false
     var resizableAspectRatioType = 0
     var resizableAspectRatioWidth = 0
     var resizableAspectRatioHeight = 0

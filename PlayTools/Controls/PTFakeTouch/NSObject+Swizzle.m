@@ -300,6 +300,50 @@ static void installEmulatedControllerRemapHookIfNeeded(void) {
     [EmulatedControllerRemap hookDidInstall];
 }
 
+// Keep running in background: UINSWindowStateController requests scene background when -[NSWindow isOnActiveSpace]
+// is NO (window on another Space), so the hook makes it always report YES; App Nap throttles invisible apps,
+// so an activity is held to keep the game running at full speed.
+// Side effect: AppKit sees every window of the game as on the active Space (activating the app may not switch Space).
+@interface NSObject (KeepRunningInBackground)
+- (BOOL)hook_NSWindow_isOnActiveSpace;
+@end
+
+@implementation NSObject (KeepRunningInBackground)
+- (BOOL)hook_NSWindow_isOnActiveSpace {
+    return YES;
+}
+@end
+
+static const char *const kIsOnActiveSpaceTypeEncoding = "B16@0:8";
+static id<NSObject> keepRunningInBackgroundActivityToken = nil;
+
+static void installKeepRunningInBackgroundHooksIfNeeded(void) {
+    static BOOL isInstalled = NO;
+    if (isInstalled || ![[PlaySettings shared] keepRunningInBackground]) return;
+    Class windowClass = objc_getClass("NSWindow");
+    if (!windowClass) return; // class may load late; the delayed retry covers it
+    isInstalled = YES;
+
+    SEL selector = NSSelectorFromString(@"isOnActiveSpace");
+    Method method = class_getInstanceMethod(windowClass, selector);
+    const char *typeEncoding = method ? method_getTypeEncoding(method) : NULL;
+    if (!typeEncoding || strcmp(typeEncoding, kIsOnActiveSpaceTypeEncoding) != 0) {
+        NSLog(@"[PlayTools] Keep running in background disabled: unexpected -[NSWindow isOnActiveSpace] (%s)",
+              typeEncoding ? typeEncoding : "missing");
+        return;
+    }
+    [windowClass swizzleInstanceMethod:selector
+                            withMethod:@selector(hook_NSWindow_isOnActiveSpace)];
+}
+
+static void startKeepRunningInBackgroundActivityIfNeeded(void) {
+    if (keepRunningInBackgroundActivityToken || ![[PlaySettings shared] keepRunningInBackground]) return;
+    // Both options are in the iOS SDK (iOS 7+), so no availability guard is needed
+    NSActivityOptions options = NSActivityUserInitiatedAllowingIdleSystemSleep | NSActivityLatencyCritical;
+    keepRunningInBackgroundActivityToken = [[NSProcessInfo processInfo] beginActivityWithOptions:options
+                                                                                           reason:@"PlayTools keep running in background"];
+}
+
 @implementation PTSwizzleLoader
 + (void)load {
     // This might need refactor soon
@@ -415,6 +459,10 @@ static void installEmulatedControllerRemapHookIfNeeded(void) {
         [objc_getClass("GCKeyboard") swizzleClassMethod:@selector(coalescedKeyboard) withMethod:@selector(hook_GCKeyboard_coalescedKeyboard)];
     }
 
+    // Keep running in background: no-op unless the setting is on
+    installKeepRunningInBackgroundHooksIfNeeded();
+    startKeepRunningInBackgroundActivityIfNeeded();
+
     // Controller emulation mapping: file-driven (no-op without PlayCover's file), so always installed
     installEmulatedControllerRemapHookIfNeeded();
     [[NSNotificationCenter defaultCenter] addObserverForName:GCControllerDidConnectNotification
@@ -439,6 +487,8 @@ static void installEmulatedControllerRemapHookIfNeeded(void) {
         }
         // Controller emulation mapping: retry once GameControllerUI had a frame to load
         installEmulatedControllerRemapHookIfNeeded();
+        // Keep running in background: retry once AppKit's NSWindow class is available
+        installKeepRunningInBackgroundHooksIfNeeded();
     });
 }
 
