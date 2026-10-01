@@ -206,6 +206,11 @@ __attribute__((visibility("hidden")))
     return nil;
 }
 
+// Unity's UnityView feeds hardware keys to the game through UIKeyCommand; expose none when the keyboard is hidden
+- (NSArray<UIKeyCommand *> *)hook_UnityView_keyCommands {
+    return @[];
+}
+
 + (void)hook_Unity_KeyboardDelegate_Initialize {
     @try {
         [self hook_Unity_KeyboardDelegate_Initialize];
@@ -377,6 +382,10 @@ bool menuWasCreated = false;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 0.01 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
         if ([[PlaySettings shared] ignoreUnityKeyboardInitializationError]) {
             [objc_getClass("KeyboardDelegate") swizzleClassMethod:NSSelectorFromString(@"Initialize") withMethod:@selector(hook_Unity_KeyboardDelegate_Initialize)];
+        }
+        // Also block the UIKeyCommand path UnityView uses to receive hardware keys (nil class on non-Unity apps is a no-op)
+        if ([[PlaySettings shared] disableBuiltinKeyboard]) {
+            [objc_getClass("UnityView") swizzleInstanceMethod:@selector(keyCommands) withMethod:@selector(hook_UnityView_keyCommands)];
         }
     });
 }
