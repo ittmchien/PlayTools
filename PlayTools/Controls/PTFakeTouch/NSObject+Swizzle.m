@@ -211,6 +211,16 @@ __attribute__((visibility("hidden")))
     return @[];
 }
 
+// Controller emulation mapping: feed Apple's emulated controller PlayCover's key layout (Apple's mapping if none)
+- (void)hook_GCKeyboardAndMouseEmulatedController_remapControlsWith:(NSDictionary *)mapping {
+    if (![mapping isKindOfClass:[NSDictionary class]]) {
+        [self hook_GCKeyboardAndMouseEmulatedController_remapControlsWith:mapping];
+        return;
+    }
+    [EmulatedControllerRemap rememberAppleMapping:mapping forController:self];
+    [self hook_GCKeyboardAndMouseEmulatedController_remapControlsWith:[EmulatedControllerRemap mergedMapping:mapping]];
+}
+
 + (void)hook_Unity_KeyboardDelegate_Initialize {
     @try {
         [self hook_Unity_KeyboardDelegate_Initialize];
@@ -262,6 +272,31 @@ bool menuWasCreated = false;
  However, doing this would require generating @interface declarations (either with class-dump or by hand) which would add a lot
  of code and complexity. I'm not sure this trade-off is "worth it", at least at the time of writing.
  */
+
+// Controller emulation mapping: GameControllerUI may load after +load, so this is retried until the class exists;
+// on an unexpected signature it logs once and leaves Apple's behaviour untouched
+static NSString *const kEmulatedControllerClassName = @"GCKeyboardAndMouseEmulatedController";
+static const char *const kRemapControlsTypeEncoding = "v24@0:8@16";
+
+static void installEmulatedControllerRemapHookIfNeeded(void) {
+    static BOOL hasFoundClass = NO;
+    if (hasFoundClass) return;
+    Class emulatedControllerClass = NSClassFromString(kEmulatedControllerClassName);
+    if (!emulatedControllerClass) return;
+    hasFoundClass = YES;
+
+    SEL remapSelector = NSSelectorFromString(@"remapControlsWith:");
+    Method remapMethod = class_getInstanceMethod(emulatedControllerClass, remapSelector);
+    const char *typeEncoding = remapMethod ? method_getTypeEncoding(remapMethod) : NULL;
+    if (!typeEncoding || strcmp(typeEncoding, kRemapControlsTypeEncoding) != 0) {
+        NSLog(@"[PlayTools] Controller emulation mapping disabled: unexpected -[%@ remapControlsWith:] (%s)",
+              kEmulatedControllerClassName, typeEncoding ? typeEncoding : "missing");
+        return;
+    }
+    [emulatedControllerClass swizzleInstanceMethod:remapSelector
+                                        withMethod:@selector(hook_GCKeyboardAndMouseEmulatedController_remapControlsWith:)];
+    [EmulatedControllerRemap hookDidInstall];
+}
 
 @implementation PTSwizzleLoader
 + (void)load {
@@ -378,6 +413,15 @@ bool menuWasCreated = false;
         [objc_getClass("GCKeyboard") swizzleClassMethod:@selector(coalescedKeyboard) withMethod:@selector(hook_GCKeyboard_coalescedKeyboard)];
     }
 
+    // Controller emulation mapping: file-driven (no-op without PlayCover's file), so always installed
+    installEmulatedControllerRemapHookIfNeeded();
+    [[NSNotificationCenter defaultCenter] addObserverForName:GCControllerDidConnectNotification
+                                                      object:nil
+                                                       queue:[NSOperationQueue mainQueue]
+                                                  usingBlock:^(NSNotification *notification) {
+        installEmulatedControllerRemapHookIfNeeded();
+    }];
+
     // Delay a frame to wait for some frameworks (such as UnityFramework) to load
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 0.01 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
         if ([[PlaySettings shared] ignoreUnityKeyboardInitializationError]) {
@@ -387,6 +431,8 @@ bool menuWasCreated = false;
         if ([[PlaySettings shared] disableBuiltinKeyboard]) {
             [objc_getClass("UnityView") swizzleInstanceMethod:@selector(keyCommands) withMethod:@selector(hook_UnityView_keyCommands)];
         }
+        // Controller emulation mapping: retry once GameControllerUI had a frame to load
+        installEmulatedControllerRemapHookIfNeeded();
     });
 }
 

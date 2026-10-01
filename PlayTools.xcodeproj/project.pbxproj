@@ -40,6 +40,7 @@
 		9562D16B2AB505AD002C329D /* MouseEventAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9562D16A2AB505AD002C329D /* MouseEventAdapter.swift */; };
 		9562D16D2AB505D4002C329D /* ControllerEventAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9562D16C2AB505D4002C329D /* ControllerEventAdapter.swift */; };
 		9562D16F2AB50D34002C329D /* ActionDispatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9562D16E2AB50D34002C329D /* ActionDispatcher.swift */; };
+		A0DE8BB2064ED964FD8BD9E3 /* EmulatedControllerRemap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E26C1809AA14B70F2782197 /* EmulatedControllerRemap.swift */; };
 		9562D1732AB52416002C329D /* EditorKeyboardEventAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9562D1722AB52416002C329D /* EditorKeyboardEventAdapter.swift */; };
 		9562D1752AB52479002C329D /* EditorMouseEventAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9562D1742AB52479002C329D /* EditorMouseEventAdapter.swift */; };
 		9562D1772AB52550002C329D /* EditorControllerEventAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9562D1762AB52550002C329D /* EditorControllerEventAdapter.swift */; };
@@ -138,6 +139,7 @@
 		9562D16A2AB505AD002C329D /* MouseEventAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MouseEventAdapter.swift; sourceTree = "<group>"; };
 		9562D16C2AB505D4002C329D /* ControllerEventAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerEventAdapter.swift; sourceTree = "<group>"; };
 		9562D16E2AB50D34002C329D /* ActionDispatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionDispatcher.swift; sourceTree = "<group>"; };
+		3E26C1809AA14B70F2782197 /* EmulatedControllerRemap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmulatedControllerRemap.swift; sourceTree = "<group>"; };
 		9562D1722AB52416002C329D /* EditorKeyboardEventAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorKeyboardEventAdapter.swift; sourceTree = "<group>"; };
 		9562D1742AB52479002C329D /* EditorMouseEventAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorMouseEventAdapter.swift; sourceTree = "<group>"; };
 		9562D1762AB52550002C329D /* EditorControllerEventAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorControllerEventAdapter.swift; sourceTree = "<group>"; };
@@ -456,11 +458,20 @@
 			path = PlayTools;
 			sourceTree = "<group>";
 		};
+		02533AB483A19B65387152E4 /* EmulatedController */ = {
+			isa = PBXGroup;
+			children = (
+				3E26C1809AA14B70F2782197 /* EmulatedControllerRemap.swift */,
+			);
+			path = EmulatedController;
+			sourceTree = "<group>";
+		};
 		AA719721287A480C00623C15 /* Controls */ = {
 			isa = PBXGroup;
 			children = (
 				AA719813287A813A00623C15 /* PTFakeTouch */,
 				9562D1712AB51B57002C329D /* Backend */,
+				02533AB483A19B65387152E4 /* EmulatedController */,
 				9562D1702AB51B41002C329D /* Frontend */,
 				AA719757287A480C00623C15 /* MenuController.swift */,
 				AA719755287A480C00623C15 /* PlayInput.swift */,
@@ -746,6 +757,7 @@
 				6E7663A528D0FEBE00DE4AF9 /* AKPluginLoader.swift in Sources */,
 				955A3F48AFD07B6583BFEFC3 /* UserPluginLoader.swift in Sources */,
 				9562D16F2AB50D34002C329D /* ActionDispatcher.swift in Sources */,
+				A0DE8BB2064ED964FD8BD9E3 /* EmulatedControllerRemap.swift in Sources */,
 				2847AE48298EFC0F00B0F983 /* PlayScreen.swift in Sources */,
 				9562D1532AB484FD002C329D /* EventAdapter.swift in Sources */,
 				AA7197A2287A481500623C15 /* CircleMenu.swift in Sources */,
