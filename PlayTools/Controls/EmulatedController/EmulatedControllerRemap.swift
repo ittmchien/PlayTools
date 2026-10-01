@@ -36,7 +36,6 @@ import GameController
     // Main queue only
     private static var directoryWatcher: DispatchSourceFileSystemObject?
     private static var pendingReload: DispatchWorkItem?
-    private static var lastSeenFileData: Data?
 
     private struct LiveApplyTarget {
         let controllerClass: AnyClass
@@ -68,7 +67,6 @@ import GameController
             #if DEBUG
             selfCheck()
             #endif
-            lastSeenFileData = readMappingData()
             startWatchingDirectory()
             // Late install: controllers Apple remapped before the hook existed pick up the file now
             reloadControllers()
@@ -191,20 +189,13 @@ import GameController
         directoryWatcher = watcher
     }
 
-    // Controller emulation mapping: collapse the burst of directory events from one save into a single reload
+    // Controller emulation mapping: collapse the burst of directory events from one save into a single reload;
+    // other apps' plists also trigger it, but the per-controller isEqual skip makes that a no-op
     private static func scheduleReload() {
         pendingReload?.cancel()
-        let reload = DispatchWorkItem { reloadIfFileChanged() }
+        let reload = DispatchWorkItem { reloadControllers() }
         pendingReload = reload
         DispatchQueue.main.asyncAfter(deadline: .now() + reloadDebounce, execute: reload)
-    }
-
-    // Controller emulation mapping: the directory holds every app's plist; only this app's changes matter
-    private static func reloadIfFileChanged() {
-        let data = readMappingData()
-        guard data != lastSeenFileData else { return }
-        lastSeenFileData = data
-        reloadControllers()
     }
 
     // Controller emulation mapping: a controller remapped before the hook existed still holds Apple's mapping
