@@ -16,12 +16,13 @@ class DebugController {
     private var debugView = DebugContainer.instance
 
     public func toggleDebugOverlay() {
-        let window = screen.keyWindow
-        let controller = window!.rootViewController
-        let view = controller!.view
         if debugView.superview == nil {
-            view!.addSubview(debugView)
-            view!.bringSubviewToFront(debugView)
+            // Skip showing the overlay when no key window/root view exists yet instead of crashing
+            guard let view = screen.keyWindow?.rootViewController?.view else {
+                return
+            }
+            view.addSubview(debugView)
+            view.bringSubviewToFront(debugView)
             debugView.isHidden = false
             debugView.isUserInteractionEnabled = false
             PlayInput.touchQueue.async {

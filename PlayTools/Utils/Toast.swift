@@ -66,7 +66,10 @@ class Toast {
 
     public static func showHint(title: String, text: [String] = [], timeout: Double = -3,
                                 notification: NSNotification.Name? = nil) {
-        let parent = screen.keyWindow!
+        // Skip the hint when no window is key yet instead of crashing
+        guard let parent = screen.keyWindow else {
+            return
+        }
 
         // Width and height here serve as an upper limit.
         // Text would fill width first, then wrap, then fill height, then scroll

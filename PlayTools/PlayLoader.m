@@ -246,14 +246,16 @@ static char const* ue_fix_filename(char const* filename) {
 static int pt_open(char const* restrict filename, int oflag, ... ) {
     filename = ue_fix_filename(filename);
 
-    if (oflag == O_CREAT) {
+    // Forward the mode and all flags whenever O_CREAT is set (not only for a bare O_CREAT),
+    // else O_WRONLY|O_CREAT|O_TRUNC opens drop their flags and the file gets garbage permissions
+    if (oflag & O_CREAT) {
         int mod;
         va_list ap;
         va_start(ap, oflag);
         mod = va_arg(ap, int);
         va_end(ap);
 
-        return pt_original_open(filename, O_CREAT, mod);
+        return pt_original_open(filename, oflag, mod);
     }
 
     return pt_original_open(filename, oflag);

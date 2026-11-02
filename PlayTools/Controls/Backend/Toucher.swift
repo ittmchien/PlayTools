@@ -26,9 +26,13 @@ class Toucher {
             if tid != nil {
                 return
             }
+            // Drop the touch when no window is key yet (e.g. click during app launch) instead of crashing
+            guard let window = screen.keyWindow else {
+                return
+            }
             tid = -1
-            keyWindow = screen.keyWindow
-            keyView = keyWindow!.hitTest(point, with: nil)
+            keyWindow = window
+            keyView = window.hitTest(point, with: nil)
         } else if tid == nil {
             return
         }
