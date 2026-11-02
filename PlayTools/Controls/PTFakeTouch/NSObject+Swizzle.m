@@ -279,6 +279,40 @@ static NSString *const kEmulatedControllerClassName = @"GCKeyboardAndMouseEmulat
 static const char *const kRemapControlsTypeEncoding = "v24@0:8@16";
 static BOOL isEmulatedControllerRemapHookInstalled = NO;
 
+// Controller combos: the combo engine turns a key into synthetic input presses; keys it does not handle reach
+// Apple's handler unchanged
+@interface NSObject (EmulatedControllerCombos)
+- (void)hook_GCKeyboardAndMouseEmulatedController_updateWithKeyKey:(long long)key down:(BOOL)down;
+@end
+
+@implementation NSObject (EmulatedControllerCombos)
+- (void)hook_GCKeyboardAndMouseEmulatedController_updateWithKeyKey:(long long)key down:(BOOL)down {
+    if ([EmulatedControllerRemap handleComboKey:key down:down controller:self]) return;
+    [self hook_GCKeyboardAndMouseEmulatedController_updateWithKeyKey:key down:down];
+}
+@end
+
+// Controller combos: installed only after the remap hook, since combos press inputs through the synthetic Buttons
+// entries the merge adds; on an unexpected signature it logs once and keys stay with Apple's handler
+static const char *const kUpdateWithKeyTypeEncoding = "v28@0:8q16B24";
+
+static void installEmulatedControllerComboHook(Class emulatedControllerClass) {
+    SEL updateSelector = NSSelectorFromString(@"updateWithKeyKey:down:");
+    Method updateMethod = class_getInstanceMethod(emulatedControllerClass, updateSelector);
+    const char *typeEncoding = updateMethod ? method_getTypeEncoding(updateMethod) : NULL;
+    if (!typeEncoding || strcmp(typeEncoding, kUpdateWithKeyTypeEncoding) != 0) {
+        NSLog(@"[PlayTools] Controller combos disabled: unexpected -[%@ updateWithKeyKey:down:] (%s)",
+              kEmulatedControllerClassName, typeEncoding ? typeEncoding : "missing");
+        return;
+    }
+    [emulatedControllerClass swizzleInstanceMethod:updateSelector
+                                        withMethod:@selector(hook_GCKeyboardAndMouseEmulatedController_updateWithKeyKey:down:)];
+    // After the swizzle the hook selector runs Apple's original, so the engine's events never re-enter the hook
+    [EmulatedControllerRemap comboHookDidInstallWithSender:^(NSObject *controller, int64_t usage, BOOL down) {
+        [controller hook_GCKeyboardAndMouseEmulatedController_updateWithKeyKey:usage down:down];
+    }];
+}
+
 static void installEmulatedControllerRemapHookIfNeeded(void) {
     static BOOL hasFoundClass = NO;
     if (hasFoundClass) return;
@@ -297,6 +331,7 @@ static void installEmulatedControllerRemapHookIfNeeded(void) {
     [emulatedControllerClass swizzleInstanceMethod:remapSelector
                                         withMethod:@selector(hook_GCKeyboardAndMouseEmulatedController_remapControlsWith:)];
     isEmulatedControllerRemapHookInstalled = YES;
+    installEmulatedControllerComboHook(emulatedControllerClass);
     [EmulatedControllerRemap hookDidInstall];
 }
 

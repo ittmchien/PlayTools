@@ -41,6 +41,7 @@
 		9562D16D2AB505D4002C329D /* ControllerEventAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9562D16C2AB505D4002C329D /* ControllerEventAdapter.swift */; };
 		9562D16F2AB50D34002C329D /* ActionDispatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9562D16E2AB50D34002C329D /* ActionDispatcher.swift */; };
 		A0DE8BB2064ED964FD8BD9E3 /* EmulatedControllerRemap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E26C1809AA14B70F2782197 /* EmulatedControllerRemap.swift */; };
+		95CB8371015C10F7B113E3FD /* EmulatedControllerComboEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 240BA6054A2D145BF7AD4B57 /* EmulatedControllerComboEngine.swift */; };
 		9562D1732AB52416002C329D /* EditorKeyboardEventAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9562D1722AB52416002C329D /* EditorKeyboardEventAdapter.swift */; };
 		9562D1752AB52479002C329D /* EditorMouseEventAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9562D1742AB52479002C329D /* EditorMouseEventAdapter.swift */; };
 		9562D1772AB52550002C329D /* EditorControllerEventAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9562D1762AB52550002C329D /* EditorControllerEventAdapter.swift */; };
@@ -140,6 +141,7 @@
 		9562D16C2AB505D4002C329D /* ControllerEventAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerEventAdapter.swift; sourceTree = "<group>"; };
 		9562D16E2AB50D34002C329D /* ActionDispatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionDispatcher.swift; sourceTree = "<group>"; };
 		3E26C1809AA14B70F2782197 /* EmulatedControllerRemap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmulatedControllerRemap.swift; sourceTree = "<group>"; };
+		240BA6054A2D145BF7AD4B57 /* EmulatedControllerComboEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmulatedControllerComboEngine.swift; sourceTree = "<group>"; };
 		9562D1722AB52416002C329D /* EditorKeyboardEventAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorKeyboardEventAdapter.swift; sourceTree = "<group>"; };
 		9562D1742AB52479002C329D /* EditorMouseEventAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorMouseEventAdapter.swift; sourceTree = "<group>"; };
 		9562D1762AB52550002C329D /* EditorControllerEventAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorControllerEventAdapter.swift; sourceTree = "<group>"; };
@@ -462,6 +464,7 @@
 			isa = PBXGroup;
 			children = (
 				3E26C1809AA14B70F2782197 /* EmulatedControllerRemap.swift */,
+				240BA6054A2D145BF7AD4B57 /* EmulatedControllerComboEngine.swift */,
 			);
 			path = EmulatedController;
 			sourceTree = "<group>";
@@ -758,6 +761,7 @@
 				955A3F48AFD07B6583BFEFC3 /* UserPluginLoader.swift in Sources */,
 				9562D16F2AB50D34002C329D /* ActionDispatcher.swift in Sources */,
 				A0DE8BB2064ED964FD8BD9E3 /* EmulatedControllerRemap.swift in Sources */,
+				95CB8371015C10F7B113E3FD /* EmulatedControllerComboEngine.swift in Sources */,
 				2847AE48298EFC0F00B0F983 /* PlayScreen.swift in Sources */,
 				9562D1532AB484FD002C329D /* EventAdapter.swift in Sources */,
 				AA7197A2287A481500623C15 /* CircleMenu.swift in Sources */,
