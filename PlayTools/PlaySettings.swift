@@ -136,7 +136,8 @@ struct AppSettingsData: Codable {
     var limitMotionUpdateFrequency = false
     var disableBuiltinMouse = false
     var disableBuiltinKeyboard = false
-    var keepRunningInBackground = false
+    // Fallback when the settings file is missing or unreadable; matches PlayCover's on-by-default
+    var keepRunningInBackground = true
     var resizableAspectRatioType = 0
     var resizableAspectRatioWidth = 0
     var resizableAspectRatioHeight = 0
